@@ -17,15 +17,44 @@ var (
 var obligationDiscriminator = [8]byte{0xa8, 0xce, 0x8d, 0x6a, 0x58, 0x4c, 0xac, 0xa7}
 
 const (
-	obligationMinimumDataSize = obligationUnhealthyBorrowValueSFOffset + 16
-
 	obligationOwnerOffset = 64
 
 	obligationDepositedValueSFOffset           = 1192
-	obligationBorrowFactorAdjustedDebtSFOffset = 2168
-	obligationBorrowedAssetsValueSFOffset      = 2184
-	obligationAllowedBorrowValueSFOffset       = 2200
-	obligationUnhealthyBorrowValueSFOffset     = 2216
+	obligationBorrowFactorAdjustedDebtSFOffsetV1 = 2168
+	obligationBorrowedAssetsValueSFOffsetV1      = 2184
+	obligationAllowedBorrowValueSFOffsetV1       = 2200
+	obligationUnhealthyBorrowValueSFOffsetV1     = 2216
+	obligationBorrowFactorAdjustedDebtSFOffsetV2 = 2208
+	obligationBorrowedAssetsValueSFOffsetV2      = 2224
+	obligationAllowedBorrowValueSFOffsetV2       = 2240
+	obligationUnhealthyBorrowValueSFOffsetV2     = 2256
+)
+
+var obligationMinimumDataSize = obligationUnhealthyBorrowValueSFOffsetV1 + 16
+
+type obligationLayout struct {
+	borrowFactorAdjustedDebtSFOffset int
+	borrowedAssetsValueSFOffset      int
+	allowedBorrowValueSFOffset       int
+	unhealthyBorrowValueSFOffset     int
+	minimumDataSize                  int
+}
+
+var (
+	obligationLayoutV1 = obligationLayout{
+		borrowFactorAdjustedDebtSFOffset: obligationBorrowFactorAdjustedDebtSFOffsetV1,
+		borrowedAssetsValueSFOffset:      obligationBorrowedAssetsValueSFOffsetV1,
+		allowedBorrowValueSFOffset:       obligationAllowedBorrowValueSFOffsetV1,
+		unhealthyBorrowValueSFOffset:     obligationUnhealthyBorrowValueSFOffsetV1,
+		minimumDataSize:                  obligationUnhealthyBorrowValueSFOffsetV1 + 16,
+	}
+	obligationLayoutV2 = obligationLayout{
+		borrowFactorAdjustedDebtSFOffset: obligationBorrowFactorAdjustedDebtSFOffsetV2,
+		borrowedAssetsValueSFOffset:      obligationBorrowedAssetsValueSFOffsetV2,
+		allowedBorrowValueSFOffset:       obligationAllowedBorrowValueSFOffsetV2,
+		unhealthyBorrowValueSFOffset:     obligationUnhealthyBorrowValueSFOffsetV2,
+		minimumDataSize:                  obligationUnhealthyBorrowValueSFOffsetV2 + 16,
+	}
 )
 
 type ParsedObligationAccount struct {
@@ -55,8 +84,9 @@ func (u Uint128) BigInt() *big.Int {
 }
 
 func ParseKaminoObligationAccount(address solana.PublicKey, data []byte) (ParsedObligationAccount, error) {
-	if len(data) < obligationMinimumDataSize {
-		return ParsedObligationAccount{}, fmt.Errorf("%w: expected at least %d, got %d", errInvalidObligationDataSize, obligationMinimumDataSize, len(data))
+	layout, err := detectObligationLayout(data)
+	if err != nil {
+		return ParsedObligationAccount{}, err
 	}
 
 	if !matchesDiscriminator(data[:8], obligationDiscriminator[:]) {
@@ -69,11 +99,22 @@ func ParseKaminoObligationAccount(address solana.PublicKey, data []byte) (Parsed
 		Address:                     address,
 		Owner:                       owner,
 		DepositedValueSF:            readUint128LE(data, obligationDepositedValueSFOffset),
-		BorrowFactorAdjustedDebtSF:  readUint128LE(data, obligationBorrowFactorAdjustedDebtSFOffset),
-		BorrowedAssetsMarketValueSF: readUint128LE(data, obligationBorrowedAssetsValueSFOffset),
-		AllowedBorrowValueSF:        readUint128LE(data, obligationAllowedBorrowValueSFOffset),
-		UnhealthyBorrowValueSF:      readUint128LE(data, obligationUnhealthyBorrowValueSFOffset),
+		BorrowFactorAdjustedDebtSF:  readUint128LE(data, layout.borrowFactorAdjustedDebtSFOffset),
+		BorrowedAssetsMarketValueSF: readUint128LE(data, layout.borrowedAssetsValueSFOffset),
+		AllowedBorrowValueSF:        readUint128LE(data, layout.allowedBorrowValueSFOffset),
+		UnhealthyBorrowValueSF:      readUint128LE(data, layout.unhealthyBorrowValueSFOffset),
 	}, nil
+}
+
+func detectObligationLayout(data []byte) (obligationLayout, error) {
+	switch {
+	case len(data) >= obligationLayoutV2.minimumDataSize:
+		return obligationLayoutV2, nil
+	case len(data) >= obligationLayoutV1.minimumDataSize:
+		return obligationLayoutV1, nil
+	default:
+		return obligationLayout{}, fmt.Errorf("%w: expected at least %d, got %d", errInvalidObligationDataSize, obligationMinimumDataSize, len(data))
+	}
 }
 
 func readUint128LE(data []byte, offset int) Uint128 {

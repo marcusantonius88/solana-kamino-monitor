@@ -23,15 +23,19 @@ type PositionResult struct {
 type PositionDiagnostics struct {
 	ProfilesTried     int
 	ProfilesFailed    int
+	ProfilesSkipped   int
 	ObligationsFound  int
 	ObligationsParsed int
+	StoppedEarly      bool
 }
 
 type PositionDebugResponse struct {
 	ProfilesTried     int      `json:"profilesTried"`
 	ProfilesFailed    int      `json:"profilesFailed"`
+	ProfilesSkipped   int      `json:"profilesSkipped,omitempty"`
 	ObligationsFound  int      `json:"obligationsFound"`
 	ObligationsParsed int      `json:"obligationsParsed"`
+	StoppedEarly      bool     `json:"stoppedEarly,omitempty"`
 	Reason            string   `json:"reason,omitempty"`
 	ProfileErrors     []string `json:"profileErrors,omitempty"`
 }
@@ -87,8 +91,10 @@ func (s *PositionService) GetWalletPosition(ctx context.Context, walletAddress s
 	diag := PositionDiagnostics{
 		ProfilesTried:     discoveryDiag.ProfilesTried,
 		ProfilesFailed:    discoveryDiag.ProfilesFailed,
+		ProfilesSkipped:   discoveryDiag.ProfilesSkipped,
 		ObligationsFound:  len(obligationAccounts),
 		ObligationsParsed: len(parsedObligations),
+		StoppedEarly:      discoveryDiag.StoppedEarly,
 	}
 
 	if !ok {
@@ -96,13 +102,18 @@ func (s *PositionService) GetWalletPosition(ctx context.Context, walletAddress s
 		if diag.ProfilesFailed > 0 {
 			reason = "inconclusive: some discovery profiles failed (likely RPC rate limit)"
 		}
+		if diag.StoppedEarly {
+			reason = "scan stopped early after finding matching obligations"
+		}
 		result := PositionResult{Diagnostics: diag}
 		if debug {
 			result.Debug = &PositionDebugResponse{
 				ProfilesTried:     diag.ProfilesTried,
 				ProfilesFailed:    diag.ProfilesFailed,
+				ProfilesSkipped:   diag.ProfilesSkipped,
 				ObligationsFound:  diag.ObligationsFound,
 				ObligationsParsed: diag.ObligationsParsed,
+				StoppedEarly:      diag.StoppedEarly,
 				Reason:            reason,
 				ProfileErrors:     collectProfileErrors(discoveryDiag),
 			}
@@ -118,8 +129,10 @@ func (s *PositionService) GetWalletPosition(ctx context.Context, walletAddress s
 		result.Debug = &PositionDebugResponse{
 			ProfilesTried:     diag.ProfilesTried,
 			ProfilesFailed:    diag.ProfilesFailed,
+			ProfilesSkipped:   diag.ProfilesSkipped,
 			ObligationsFound:  diag.ObligationsFound,
 			ObligationsParsed: diag.ObligationsParsed,
+			StoppedEarly:      diag.StoppedEarly,
 			ProfileErrors:     collectProfileErrors(discoveryDiag),
 		}
 	}

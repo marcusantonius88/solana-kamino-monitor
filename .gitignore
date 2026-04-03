@@ -3,6 +3,8 @@
 !.env.example
 
 .codex
+.gocache/
+.gomodcache/
 
 *.log
 *.out

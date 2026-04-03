@@ -16,5 +16,7 @@ type DiscoveryProfileResult struct {
 type DiscoveryDiagnostics struct {
 	ProfilesTried  int
 	ProfilesFailed int
+	ProfilesSkipped int
+	StoppedEarly bool
 	Profiles       []DiscoveryProfileResult
 }

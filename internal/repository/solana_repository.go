@@ -20,7 +20,7 @@ var (
 	kaminoLendingProgramID         = solana.MustPublicKeyFromBase58("KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD")
 	kaminoLendingStagingProgramID  = solana.MustPublicKeyFromBase58("SLendK7ySfcEzyaFqy93gDnD3RtrpXJcnRwb6zFHJSh")
 	kaminoFlexLendProgramID        = solana.MustPublicKeyFromBase58("FL3X2pRsQ9zHENpZSKDRREtccwJuei8yg9fwDu9UN69Q")
-	obligationAccountDiscriminator = solana.Base58("VEdzkJnDweW") // sha256("account:Obligation")[:8]
+	obligationAccountDiscriminator = solana.Base58([]byte{0xa8, 0xce, 0x8d, 0x6a, 0x58, 0x4c, 0xac, 0xa7}) // sha256("account:Obligation")[:8]
 )
 
 const (
@@ -100,7 +100,7 @@ func (r *SolanaRepository) DiscoverKaminoObligationsByWallet(
 			{
 				Memcmp: &solanarpc.RPCFilterMemcmp{
 					Offset: profile.ownerOffset,
-					Bytes:  solana.Base58(wallet.String()),
+					Bytes:  solana.Base58(wallet.Bytes()),
 				},
 			},
 		}
@@ -147,6 +147,12 @@ func (r *SolanaRepository) DiscoverKaminoObligationsByWallet(
 				Address: account.Pubkey,
 				Data:    account.Account.Data.GetBinary(),
 			})
+		}
+
+		if fullScan && len(result) > 0 {
+			diagnostics.StoppedEarly = true
+			diagnostics.ProfilesSkipped = len(profiles) - diagnostics.ProfilesTried
+			break
 		}
 	}
 
