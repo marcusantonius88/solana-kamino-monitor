@@ -30,8 +30,8 @@ It is built for monitoring, not simulation.
 ### 1. Clone the repository
 
 ```bash
-git clone <your-repository-url>
-cd kamino-simulator
+git clone https://github.com/marcusantonius88/solana-kamino-monitor
+cd solana-kamino-monitor
 ```
 
 ---
